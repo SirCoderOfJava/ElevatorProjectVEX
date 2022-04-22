@@ -61,7 +61,7 @@ void goToFloor(int destination) {
 			return;
 		case (destination < currentFloor): //elevator should move down
 			bool passedMiddle = false;  //Flag to prevent unnecessary processing by constantly updating leds
-			while(SensorValue[encoder] < encoderValues[destination]) { 
+			while(SensorValue[encoder] > encoderValues[destination]) { 
 				motor[motor] = -1 * elevatorSpeed; //Release the winch until the encoder value reads the value of the desired floor                  
 				if(!passedMiddle && //led has not already been updated
 				(currentFloor - destination == 2) && //Checks if there is a middle floor
@@ -76,6 +76,21 @@ void goToFloor(int destination) {
 			currentFloor = destination; //Current floor is now the destination
 			return;
 		case (destination > currentFloor): //elevator should move up
+			bool passedMiddle = false;  //Flag to prevent unnecessary processing by constantly updating leds
+			while(SensorValue[encoder] < encoderValues[destination]) { 
+				motor[motor] = elevatorSpeed; //Run the motor until the encoder value reads the value of the desired floor                  
+				if(!passedMiddle && //led has not already been updated
+				(destination - currentFloor == 2) && //Checks if there is a middle floor
+				(SensorValue[encoder] > encoderValues[destination - 1]))//Checks if the middle floor has been passed 
+				{ //Check if the elevator has passed the middle floor
+					currentFloor = destination - 1; //we have now passed the middle floor
+					updateFloorDisplay(); //update the floor display to show this
+					passedMiddle = true; //update flag so this statement doesn't unnecessarily run multiple times
+				}
+			}
+			motor[motor] = 0; //Stop the elevator at the floor
+			currentFloor = destination; //Current floor is now the destination
+			return;
 	}
 }
 
