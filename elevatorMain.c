@@ -23,6 +23,14 @@
 //(6) bump switches
 //(9) leds
 
+/*
+TODO:
+finish awaitInput()
+figure out ports (we will likely have problems otherwise)
+finish goToFloor()
+-implement routine to stop at the middle floor if the call button was pressed after we started moving but before we arrived
+*/
+
 void goToFloor(int destination); //Sends the elevator to the specified floor
 int awaitInput(); // Return ID of input
 void updateFloorDisplay(); //Updates the led display on every floor
@@ -59,8 +67,9 @@ void goToFloor(int destination) {
 				(currentFloor - destination == 2) && //Checks if there is a middle floor
 				(SensorValue[encoder] < encoderValues[destination + 1]))//Checks if the middle floor has been passed 
 				{ //Check if the elevator has passed the middle floor
-					currentFloor--; //de-increment current floor since we have gone down a floor
+					currentFloor = destination + 1; //we have now passed the middle floor
 					updateFloorDisplay(); //update the floor display to show this
+					passedMiddle = true; //update flag so this statement doesn't unnecessarily run multiple times
 				}
 			}
 			motor[motor] = 0; //Stop the elevator at the floor
@@ -75,6 +84,10 @@ int awaitInput() {
 	while(time1[T1] < maxWaitLength * 1000) {
 		//check every switch
 		//switches in elevator first, then call buttons
+		if(SensorValue[eF0] == 1) { //The button inside the elevator for F0 has been pressed
+			return elevatorF0;
+		}
+		
 		//if a switch is pressed, return the associated inputID
 	}
 	return F0; //If the timer expires and a return statement in the loop has not been triggered, return F0 to send the elevator to the ground floor
