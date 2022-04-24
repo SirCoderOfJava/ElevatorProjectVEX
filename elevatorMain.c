@@ -27,8 +27,6 @@
 /*
 TODO:
 -calibration program for encoder values
--finish goToFloor()
- -implement routine to stop at the middle floor if the call button was pressed after we started moving but before we arrived
 */
 
 void goToFloor(int destination); //Sends the elevator to the specified floor
@@ -40,6 +38,7 @@ const int encoderValues[3] = {0, 1, 2}; //TODO: Calibrate encoder values for spe
 int currentFloor;                       //Stores the floor # the elevator is on (or has most recently passed)
 const int maxWaitLength = 5;            //Maximum seconds to wait for input
 const int elevatorSpeed = 20;           //Value from 0 to 127 that denotes the speed the motor that controls the elevator moves at
+const int waitAtFloorLength = 2;        //Seconds to wait at the middle floor if the button was pressed before continuing to the next floor
 
 enum inputID {F0Call, F1Call, F2Call, ElevatorF0, ElevatorF1, ElevatorF2};
 enum floorID {F0, F1, F2};
@@ -57,39 +56,53 @@ task main() {
 void goToFloor(int destination) {
 	switch(destination) {
 		//cases to determine if elevator should move up or down (or not move at all)
-		case (destination == currentFloor):                                      //elevator should stay in the same place
+		case (destination == currentFloor):                                                                                         //elevator should stay in the same place
 			return;
-		case (destination < currentFloor):                                       //elevator should move down
-			bool passedMiddle = false;                                       //Flag to prevent unnecessary processing by constantly updating leds
+		case (destination < currentFloor):                                                                                          //elevator should move down
+			bool passedMiddle = false;                                                                                          //Flag to prevent unnecessary processing by constantly updating leds
+			bool stopAtMiddle = false;                                                                                          //Flag to determine if the elevator should stop at the middle floor
+			bool middleExists = ((currentFloor - destination) == 2);                                                            //Determines if there is a middle floor
 			while(SensorValue[encoder] > encoderValues[destination]) { 
-				motor[motor] = -1 * elevatorSpeed;                       //Release the winch until the encoder value reads the value of the desired floor                  
-				if(!passedMiddle &&                                      //led has not already been updated
-				(currentFloor - destination == 2) &&                     //Checks if there is a middle floor
-				(SensorValue[encoder] < encoderValues[destination + 1])) //Checks if the middle floor has been passed 
-				{                                                        //The above checks if the elevator has passed the middle floor
-					currentFloor = destination + 1;                  //update currentFloor to reflect that the elevator has passed the middle floor
-					updateFloorDisplay();                            //update the floor display to show this
-					passedMiddle = true;                             //update flag so this statement doesn't unnecessarily run multiple times
+				motor[motor] = -1 * elevatorSpeed;                                                                          //Release the winch until the encoder value reads the value of the desired floor
+				stopAtMiddle = (middleExists && (SensorValue[callF1] == 1 || SensorValue[eF1] == 1)) ? true : stopAtMiddle; //Sets the flag to true if either of the buttons for the middle floor is pressed or keeps it the same if no button is pressed
+				if(!passedMiddle &&                                                                                         //led has not already been updated
+				    middleExists &&                                                                                         //Checks if there is a middle floor
+				(SensorValue[encoder] < encoderValues[destination + 1]))                                                    //Checks if the middle floor has been passed 
+				{                                                                                                           //The above checks if the elevator has passed the middle floor
+					currentFloor = destination + 1;                                                                     //update currentFloor to reflect that the elevator has passed the middle floor
+					updateFloorDisplay();                                                                               //update the floor display to show this
+					passedMiddle = true;                                                                                //update flag so this statement doesn't unnecessarily run multiple times
+					if(stopAtMiddle) {
+						motor[motor] = 0;                                                                           //Stop the elevator at the floor
+						wait(waitAtFloorLength);                                                                    //Wait for passengers to get on
+					}
 				}
 			}
-			motor[motor] = 0;                                                //Stop the elevator at the floor
-			currentFloor = destination;                                      //Current floor is now the destination
+			motor[motor] = 0;                                                                                                   //Stop the elevator at the floor
+			currentFloor = destination;                                                                                         //Current floor is now the destination
 			return;
-		case (destination > currentFloor):                                       //elevator should move up
-			bool passedMiddle = false;                                       //Flag to prevent unnecessary processing by constantly updating leds
+		case (destination > currentFloor):                                                                                          //elevator should move up
+			bool passedMiddle = false;                                                                                          //Flag to prevent unnecessary processing by constantly updating leds
+			bool stopAtMiddle = false;                                                                                          //Flag to determine if the elevator should stop at the middle floor
+			bool middleExists = ((destination - currentFloor) == 2);                                                            //Determines if there is a middle floor
 			while(SensorValue[encoder] < encoderValues[destination]) { 
-				motor[motor] = elevatorSpeed;                            //Run the motor until the encoder value reads the value of the desired floor                  
-				if(!passedMiddle &&                                      //led has not already been updated
-				(destination - currentFloor == 2) &&                     //Checks if there is a middle floor
-				(SensorValue[encoder] > encoderValues[destination - 1])) //Checks if the middle floor has been passed 
-				{                                                        //The above checks if the elevator has passed the middle floor
-					currentFloor = destination - 1;                  //we have now passed the middle floor
-					updateFloorDisplay();                            //update the floor display to show this
-					passedMiddle = true;                             //update flag so this statement doesn't unnecessarily run multiple times
+				motor[motor] = elevatorSpeed;                                                                               //Run the motor until the encoder value reads the value of the desired floor                  
+				stopAtMiddle = (middleExists && (SensorValue[callF1] == 1 || SensorValue[eF1] == 1)) ? true : stopAtMiddle; //Sets the flag to true if either of the buttons for the middle floor is pressed or keeps it the same if no button is pressed
+				if(!passedMiddle &&                                                                                         //led has not already been updated
+				    middleExists &&                                                                                         //Checks if there is a middle floor
+				(SensorValue[encoder] > encoderValues[destination - 1]))                                                    //Checks if the middle floor has been passed 
+				{                                                                                                           //The above checks if the elevator has passed the middle floor
+					currentFloor = destination - 1;                                                                     //we have now passed the middle floor
+					updateFloorDisplay();                                                                               //update the floor display to show this
+					passedMiddle = true;                                                                                //update flag so this statement doesn't unnecessarily run multiple times
+					if(stopAtMiddle) {
+						motor[motor] = 0;                                                                           //Stop the elevator at the floor
+						wait(waitAtFloorLength);                                                                    //Wait for passengers to get on
+					}
 				}
 			}
-			motor[motor] = 0;                                                //Stop the elevator at the floor
-			currentFloor = destination;                                      //Current floor is now the destination
+			motor[motor] = 0;                                                                                                   //Stop the elevator at the floor
+			currentFloor = destination;                                                                                         //Current floor is now the destination
 			return;
 	}
 }
